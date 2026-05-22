@@ -32,7 +32,9 @@ Two-layer approach:
 
 1. **Lazy cleanup** — `POST /api/reservations` calls `releaseExpiredReservations({ productId, warehouseId })` before acquiring the stock lock. Expired holds are swept atomically before any new reservation can be created, so stale holds can never block new ones.
 
-2. **Vercel Cron** (`vercel.json`) — hits `GET /api/cron/expire` every minute for a global sweep of all PENDING reservations past their `expiresAt`. Keeps the DB clean for products nobody is actively buying.
+2. **Vercel Cron** (`vercel.json`) — hits `GET /api/cron/expire` once per day (Vercel Hobby plan limit; Pro plan supports per-minute). Does a global sweep of all PENDING reservations past their `expiresAt`.
+
+The lazy cleanup on `POST /api/reservations` is the primary safety mechanism — it always runs before checking stock, so expired holds can never block new reservations even if the cron hasn't fired yet. The cron is belt-and-suspenders to keep the DB clean for products nobody is actively buying.
 
 The cron endpoint requires `Authorization: Bearer $CRON_SECRET` — Vercel injects this automatically when invoking the cron.
 
